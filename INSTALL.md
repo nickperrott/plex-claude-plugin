@@ -20,7 +20,7 @@ Three ways to install the Plex MCP Server:
    bash install.sh
 
    # Configure
-   nano ~/.local/share/plex-mcp/.env
+   nano ~/git/plex-claude-plugin/.env
 
    # Restart Claude Desktop
    ```
@@ -30,7 +30,7 @@ Three ways to install the Plex MCP Server:
 1. **Install directly from repo:**
    ```bash
    # Install to standard location
-   INSTALL_DIR="$HOME/.local/share/plex-mcp"
+   INSTALL_DIR="$HOME/git/plex-claude-plugin"
    git clone https://github.com/yourusername/plex-claude-plugin.git "$INSTALL_DIR"
    cd "$INSTALL_DIR"
 
@@ -58,9 +58,9 @@ Three ways to install the Plex MCP Server:
          "args": [
            "run",
            "--directory",
-           "/Users/yourusername/.local/share/plex-mcp",
+           "/Users/yourusername/git/plex-claude-plugin",
            "--env-file",
-           "/Users/yourusername/.local/share/plex-mcp/.env",
+           "/Users/yourusername/git/plex-claude-plugin/.env",
            "plex-mcp"
          ]
        }
@@ -134,14 +134,14 @@ See [QUICKSTART.md](QUICKSTART.md) for detailed configuration instructions.
 ### Bundle installation:
 ```bash
 # Download new bundle
-unzip -o plex-mcp-0.1.1.mcpb -d ~/.local/share/plex-mcp
-cd ~/.local/share/plex-mcp
+unzip -o plex-mcp-0.1.1.mcpb -d ~/git/plex-claude-plugin
+cd ~/git/plex-claude-plugin
 uv pip install -e .
 ```
 
 ### Git installation:
 ```bash
-cd ~/.local/share/plex-mcp
+cd ~/git/plex-claude-plugin
 git pull
 uv pip install -e .
 ```
@@ -155,7 +155,7 @@ pipx upgrade plex-claude-plugin
 
 **MCP server not appearing in Claude Desktop:**
 1. Check config file syntax: `cat ~/Library/Application\ Support/Claude/claude_desktop_config.json | python3 -m json.tool`
-2. Check server runs manually: `cd ~/.local/share/plex-mcp && uv run --env-file .env plex-mcp`
+2. Check server runs manually: `cd ~/git/plex-claude-plugin && uv run --env-file .env plex-mcp`
 3. Check Claude Desktop logs: `~/Library/Logs/Claude/`
 
 **Connection errors:**
@@ -164,5 +164,5 @@ pipx upgrade plex-claude-plugin
 3. See [QUICKSTART.md](QUICKSTART.md) for token retrieval instructions
 
 **Import errors:**
-1. Reinstall dependencies: `cd ~/.local/share/plex-mcp && uv pip install -e .`
+1. Reinstall dependencies: `cd ~/git/plex-claude-plugin && uv pip install -e .`
 2. Check Python version: `python3 --version` (requires >=3.11)

@@ -1,0 +1,98 @@
+{
+  "plugin_version": "0.1.0",
+  "plugin_format": "claude-code-v1",
+  "name": "plex",
+  "display_name": "Plex Media Server",
+  "description": "Manage Plex Media Server - library scanning, media identification, and automated ingestion",
+  "author": "Nick Perrott",
+  "license": "MIT",
+  "mcp_server": "plex-media-server",
+  "commands": [
+    {
+      "name": "scan",
+      "description": "Scan Plex library to refresh metadata",
+      "documentation": "commands/scan.md",
+      "safety": "write"
+    },
+    {
+      "name": "identify",
+      "description": "Identify media files using TMDb",
+      "documentation": "commands/identify.md",
+      "safety": "read"
+    },
+    {
+      "name": "rename",
+      "description": "Preview and execute rename plans",
+      "documentation": "commands/rename.md",
+      "safety": "write"
+    },
+    {
+      "name": "ingest",
+      "description": "Execute full ingest pipeline",
+      "documentation": "commands/ingest.md",
+      "safety": "write"
+    },
+    {
+      "name": "status",
+      "description": "Show server and library status",
+      "documentation": "commands/status.md",
+      "safety": "read"
+    },
+    {
+      "name": "plan",
+      "description": "Generate ingest plan without execution",
+      "documentation": "commands/plan.md",
+      "safety": "read"
+    },
+    {
+      "name": "watch",
+      "description": "Manage file watcher for auto-ingest",
+      "documentation": "commands/watch.md",
+      "safety": "write"
+    },
+    {
+      "name": "review",
+      "description": "Review and process queue items",
+      "documentation": "commands/review.md",
+      "safety": "mixed"
+    },
+    {
+      "name": "configure",
+      "description": "Interactive configuration wizard",
+      "documentation": "commands/configure.md",
+      "safety": "write"
+    }
+  ],
+  "agents": [
+    {
+      "name": "library",
+      "description": "Library management and scanning",
+      "documentation": "agents/library.md"
+    },
+    {
+      "name": "media",
+      "description": "Media identification and matching",
+      "documentation": "agents/media.md"
+    },
+    {
+      "name": "ingest",
+      "description": "File ingest and processing",
+      "documentation": "agents/ingest.md"
+    },
+    {
+      "name": "watcher",
+      "description": "Background file monitoring",
+      "documentation": "agents/watcher.md"
+    }
+  ],
+  "hooks": {
+    "safety": {
+      "handler": "hooks/safety.py:safety_hook",
+      "description": "Three-tier safety classification (read/write/blocked)"
+    }
+  },
+  "requirements": {
+    "python": ">=3.11",
+    "mcp_server_version": ">=1.2.0"
+  }
+}

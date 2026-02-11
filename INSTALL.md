@@ -1,0 +1,168 @@
+# Installation Guide
+
+Three ways to install the Plex MCP Server:
+
+## Option 1: From Bundle (.mcpb) - Easiest for Distribution
+
+1. **Build the bundle:**
+   ```bash
+   cd /path/to/plex-claude-plugin/montreal-v1
+   chmod +x build_bundle.py
+   ./build_bundle.py
+   ```
+
+2. **Distribute `plex-mcp-0.1.0.mcpb`** to users
+
+3. **Users install:**
+   ```bash
+   # Extract and run installer
+   unzip plex-mcp-0.1.0.mcpb
+   bash install.sh
+
+   # Configure
+   nano ~/.local/share/plex-mcp/.env
+
+   # Restart Claude Desktop
+   ```
+
+## Option 2: From GitHub - Best for Development
+
+1. **Install directly from repo:**
+   ```bash
+   # Install to standard location
+   INSTALL_DIR="$HOME/.local/share/plex-mcp"
+   git clone https://github.com/yourusername/plex-claude-plugin.git "$INSTALL_DIR"
+   cd "$INSTALL_DIR"
+
+   # Setup environment
+   uv venv
+   uv pip install -e .
+
+   # Configure
+   cp .env.example .env
+   nano .env
+   ```
+
+2. **Add to Claude Desktop config:**
+   ```bash
+   # Edit config
+   nano ~/Library/Application\ Support/Claude/claude_desktop_config.json
+   ```
+
+   Add this server:
+   ```json
+   {
+     "mcpServers": {
+       "plex": {
+         "command": "uv",
+         "args": [
+           "run",
+           "--directory",
+           "/Users/yourusername/.local/share/plex-mcp",
+           "--env-file",
+           "/Users/yourusername/.local/share/plex-mcp/.env",
+           "plex-mcp"
+         ]
+       }
+     }
+   }
+   ```
+
+3. **Restart Claude Desktop**
+
+## Option 3: System-wide with pipx - For Power Users
+
+1. **Install with pipx:**
+   ```bash
+   # From GitHub
+   pipx install git+https://github.com/yourusername/plex-claude-plugin.git
+
+   # Or from local path
+   pipx install /path/to/plex-claude-plugin
+   ```
+
+2. **Configure:**
+   ```bash
+   mkdir -p ~/.config/plex-mcp
+   cat > ~/.config/plex-mcp/.env << 'EOF'
+   PLEX_URL=https://plex.tv
+   PLEX_TOKEN=your-token-here
+   TMDB_API_KEY=your-api-key-here
+   PLEX_MEDIA_ROOT=/path/to/media
+   EOF
+   ```
+
+3. **Add to Claude Desktop config:**
+   ```json
+   {
+     "mcpServers": {
+       "plex": {
+         "command": "plex-mcp",
+         "env": {
+           "PLEX_URL": "https://plex.tv",
+           "PLEX_TOKEN": "your-token-here",
+           "TMDB_API_KEY": "your-api-key-here",
+           "PLEX_MEDIA_ROOT": "/path/to/media"
+         }
+       }
+     }
+   }
+   ```
+
+## Configuration
+
+All methods require these environment variables:
+
+```bash
+# Required
+PLEX_URL=https://plex.tv              # Or http://your-server-ip:32400
+PLEX_TOKEN=your-plex-token            # Get from browser localStorage
+TMDB_API_KEY=your-tmdb-api-key        # From https://www.themoviedb.org/settings/api
+PLEX_MEDIA_ROOT=/Volumes/MEDIA        # Root path for media files
+
+# Optional
+PLEX_INGEST_DIR=/path/to/downloads    # Folder to watch for new media
+PLEX_AUTO_INGEST=true                 # Auto-process high-confidence matches
+PLEX_CONFIDENCE_THRESHOLD=0.85        # Minimum confidence for auto-ingest
+PLEX_WATCHER_AUTO_START=true          # Start file watcher on server start
+```
+
+See [QUICKSTART.md](QUICKSTART.md) for detailed configuration instructions.
+
+## Updating
+
+### Bundle installation:
+```bash
+# Download new bundle
+unzip -o plex-mcp-0.1.1.mcpb -d ~/.local/share/plex-mcp
+cd ~/.local/share/plex-mcp
+uv pip install -e .
+```
+
+### Git installation:
+```bash
+cd ~/.local/share/plex-mcp
+git pull
+uv pip install -e .
+```
+
+### pipx installation:
+```bash
+pipx upgrade plex-claude-plugin
+```
+
+## Troubleshooting
+
+**MCP server not appearing in Claude Desktop:**
+1. Check config file syntax: `cat ~/Library/Application\ Support/Claude/claude_desktop_config.json | python3 -m json.tool`
+2. Check server runs manually: `cd ~/.local/share/plex-mcp && uv run --env-file .env plex-mcp`
+3. Check Claude Desktop logs: `~/Library/Logs/Claude/`
+
+**Connection errors:**
+1. Test token: `curl -H "X-Plex-Token: YOUR_TOKEN" https://plex.tv/pms/servers.xml`
+2. Check .env file exists and has correct values
+3. See [QUICKSTART.md](QUICKSTART.md) for token retrieval instructions
+
+**Import errors:**
+1. Reinstall dependencies: `cd ~/.local/share/plex-mcp && uv pip install -e .`
+2. Check Python version: `python3 --version` (requires >=3.11)

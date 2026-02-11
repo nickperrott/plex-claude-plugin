@@ -6,10 +6,33 @@
   "version": "0.1.0",
   "author": "Nick Perrott",
   "license": "MIT",
+  "homepage": "https://github.com/yourusername/plex-claude-plugin",
+  "repository": "https://github.com/yourusername/plex-claude-plugin",
+  "keywords": ["plex", "media", "tmdb", "automation", "ingest", "library"],
   "server": {
     "type": "uv",
     "module": "server.main",
     "function": "main"
+  },
+  "bundle": {
+    "type": "mcpb",
+    "plugin_directory": "plex-plugin",
+    "include": [
+      "server/**/*.py",
+      "plex-plugin/**/*.md",
+      "plex-plugin/**/*.py",
+      "plex-plugin/**/*.json",
+      "pyproject.toml",
+      "README.md",
+      "LICENSE"
+    ],
+    "exclude": [
+      "**/__pycache__",
+      "**/*.pyc",
+      "tests/**",
+      ".git/**",
+      ".venv/**"
+    ]
   },
   "user_config": {
     "plex_url": {

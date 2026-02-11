@@ -33,6 +33,50 @@ MCP Server (FastMCP)
 - TMDb API key (free at https://www.themoviedb.org/settings/api)
 - uv package manager
 
+## Quick Start
+
+**📖 See [QUICKSTART.md](QUICKSTART.md) for detailed setup instructions!**
+
+### 1. Interactive Configuration (Recommended)
+
+```bash
+cd plex-claude-plugin/montreal-v1
+./setup-config.sh
+```
+
+This wizard will:
+- ✓ Guide you through all settings
+- ✓ Test Plex and TMDb connections
+- ✓ Save configuration to `.env` file
+
+### 2. Test the Server
+
+```bash
+uv run --env-file .env plex-mcp
+```
+
+You should see: `Plex MCP Server started successfully!`
+
+### 3. Connect to Claude
+
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "plex": {
+      "command": "uv",
+      "args": [
+        "--directory", "/FULL/PATH/TO/plex-claude-plugin/montreal-v1",
+        "run", "--env-file", ".env", "plex-mcp"
+      ]
+    }
+  }
+}
+```
+
+**Important**: Use absolute path and restart Claude Desktop!
+
 ## Installation
 
 ### Claude Desktop (.mcpb)

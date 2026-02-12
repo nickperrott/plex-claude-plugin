@@ -8,7 +8,7 @@ echo "====================="
 echo
 
 # Configuration
-INSTALL_DIR="$HOME/.local/share/plex-mcp"
+INSTALL_DIR="$HOME/git/plex-claude-plugin"
 CONFIG_DIR="$HOME/.config/plex-mcp"
 CLAUDE_CONFIG="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -138,7 +138,7 @@ cat > "$INSTALL_DIR/update.sh" << 'UPDATEEOF'
 #!/bin/bash
 # Update Plex MCP Server
 
-INSTALL_DIR="$HOME/.local/share/plex-mcp"
+INSTALL_DIR="$HOME/git/plex-claude-plugin"
 cd "$INSTALL_DIR"
 
 echo "Updating Plex MCP Server..."

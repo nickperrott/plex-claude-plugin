@@ -16,6 +16,7 @@ from server.files import FileManager
 from server.history import IngestHistory
 from server.watcher import IngestWatcher
 from server.tools import library, system, media, ingest
+from server.safety import validate_operation, get_safety_metadata, TOOL_SAFETY_MAP
 
 
 def load_config():
@@ -419,8 +420,42 @@ async def reject_pending(source: str) -> dict:
     return await watcher.reject_pending(source)
 
 
+def validate_tool_safety(tool_name: str) -> None:
+    """
+    Validate that a tool operation is allowed to execute.
+
+    Raises:
+        ValueError: If operation is blocked
+    """
+    allowed, reason = validate_operation(tool_name)
+    if not allowed:
+        raise ValueError(reason)
+
+
+def add_safety_metadata(result: dict, tool_name: str) -> dict:
+    """
+    Add safety metadata to tool result.
+
+    Args:
+        result: Original tool result
+        tool_name: Name of the tool that was called
+
+    Returns:
+        Result with added safety metadata
+    """
+    safety_info = get_safety_metadata(tool_name)
+
+    # Add safety metadata without overwriting existing data
+    if isinstance(result, dict):
+        result["_safety"] = safety_info
+
+    return result
+
+
 def main():
     """Main entry point."""
+    logger.info("Plex MCP Server starting...")
+    logger.info(f"Safety validation enabled for all {len(TOOL_SAFETY_MAP)} tools")
     mcp.run()
 
 

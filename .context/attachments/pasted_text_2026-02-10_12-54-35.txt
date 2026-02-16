@@ -1,0 +1,68 @@
+nick@Mac montreal-v1 % uv run plex-mcp
+2026-02-10 12:54:27,257 - server.main - INFO - Starting Plex MCP Server...
+  + Exception Group Traceback (most recent call last):
+  |   File "/Users/nick/conductor/workspaces/plex-claude-plugin/montreal-v1/venv/bin/plex-mcp", line 10, in <module>
+  |     sys.exit(main())
+  |              ~~~~^^
+  |   File "/Users/nick/conductor/workspaces/plex-claude-plugin/montreal-v1/server/main.py", line 391, in main
+  |     mcp.run()
+  |     ~~~~~~~^^
+  |   File "/Users/nick/conductor/workspaces/plex-claude-plugin/montreal-v1/venv/lib/python3.14/site-packages/mcp/server/fastmcp/server.py", line 296, in run
+  |     anyio.run(self.run_stdio_async)
+  |     ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/Users/nick/conductor/workspaces/plex-claude-plugin/montreal-v1/venv/lib/python3.14/site-packages/anyio/_core/_eventloop.py", line 77, in run
+  |     return async_backend.run(func, args, {}, backend_options)
+  |            ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/Users/nick/conductor/workspaces/plex-claude-plugin/montreal-v1/venv/lib/python3.14/site-packages/anyio/_backends/_asyncio.py", line 2342, in run
+  |     return runner.run(wrapper())
+  |            ~~~~~~~~~~^^^^^^^^^^^
+  |   File "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/runners.py", line 127, in run
+  |     return self._loop.run_until_complete(task)
+  |            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  |   File "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/base_events.py", line 719, in run_until_complete
+  |     return future.result()
+  |            ~~~~~~~~~~~~~^^
+  |   File "/Users/nick/conductor/workspaces/plex-claude-plugin/montreal-v1/venv/lib/python3.14/site-packages/anyio/_backends/_asyncio.py", line 2325, in wrapper
+  |     return await func(*args)
+  |            ^^^^^^^^^^^^^^^^^
+  |   File "/Users/nick/conductor/workspaces/plex-claude-plugin/montreal-v1/venv/lib/python3.14/site-packages/mcp/server/fastmcp/server.py", line 755, in run_stdio_async
+  |     async with stdio_server() as (read_stream, write_stream):
+  |                ~~~~~~~~~~~~^^
+  |   File "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/lib/python3.14/contextlib.py", line 235, in __aexit__
+  |     await self.gen.athrow(value)
+  |   File "/Users/nick/conductor/workspaces/plex-claude-plugin/montreal-v1/venv/lib/python3.14/site-packages/mcp/server/stdio.py", line 85, in stdio_server
+  |     async with anyio.create_task_group() as tg:
+  |                ~~~~~~~~~~~~~~~~~~~~~~~^^
+  |   File "/Users/nick/conductor/workspaces/plex-claude-plugin/montreal-v1/venv/lib/python3.14/site-packages/anyio/_backends/_asyncio.py", line 783, in __aexit__
+  |     raise BaseExceptionGroup(
+  |         "unhandled errors in a TaskGroup", self._exceptions
+  |     ) from None
+  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | Traceback (most recent call last):
+    |   File "/Users/nick/conductor/workspaces/plex-claude-plugin/montreal-v1/venv/lib/python3.14/site-packages/mcp/server/stdio.py", line 88, in stdio_server
+    |     yield read_stream, write_stream
+    |   File "/Users/nick/conductor/workspaces/plex-claude-plugin/montreal-v1/venv/lib/python3.14/site-packages/mcp/server/fastmcp/server.py", line 756, in run_stdio_async
+    |     await self._mcp_server.run(
+    |     ...<3 lines>...
+    |     )
+    |   File "/Users/nick/conductor/workspaces/plex-claude-plugin/montreal-v1/venv/lib/python3.14/site-packages/mcp/server/lowlevel/server.py", line 657, in run
+    |     lifespan_context = await stack.enter_async_context(self.lifespan(self))
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/lib/python3.14/contextlib.py", line 668, in enter_async_context
+    |     result = await _enter(cm)
+    |              ^^^^^^^^^^^^^^^^
+    |   File "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/lib/python3.14/contextlib.py", line 214, in __aenter__
+    |     return await anext(self.gen)
+    |            ^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/nick/conductor/workspaces/plex-claude-plugin/montreal-v1/venv/lib/python3.14/site-packages/mcp/server/fastmcp/server.py", line 140, in wrap
+    |     async with lifespan(app) as context:
+    |                ~~~~~~~~^^^^^
+    |   File "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/lib/python3.14/contextlib.py", line 214, in __aenter__
+    |     return await anext(self.gen)
+    |            ^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/nick/conductor/workspaces/plex-claude-plugin/montreal-v1/server/main.py", line 54, in lifespan
+    |     raise ValueError(
+    |     ...<2 lines>...
+    |     )
+    | ValueError: Missing required environment variables. Please set PLEX_URL, PLEX_TOKEN, TMDB_API_KEY, and PLEX_MEDIA_ROOT.

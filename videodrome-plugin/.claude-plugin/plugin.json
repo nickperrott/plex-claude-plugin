@@ -1,0 +1,8 @@
+{
+  "name": "plex",
+  "description": "Manage Plex Media Server - library scanning, media identification, and automated ingestion",
+  "author": {
+    "name": "Nick Perrott",
+    "email": "nick@example.com"
+  }
+}

@@ -1,6 +1,7 @@
 {
-  "name": "plex",
-  "description": "Manage Plex Media Server - library scanning, media identification, and automated ingestion",
+  "name": "videodrome",
+  "description": "Manage your video library - download, identify, organize, and ingest media with Plex, TMDb, and Transmission",
+  "version": "0.1.0",
   "author": {
     "name": "Nick Perrott",
     "email": "nick@example.com"

@@ -1,0 +1,16 @@
+{
+  "description": "Videodrome safety and session context hooks",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/session_context.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

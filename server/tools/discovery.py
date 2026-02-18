@@ -7,6 +7,7 @@ import os
 import re
 import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional
 
 import tmdbsimple as tmdb
@@ -29,6 +30,207 @@ _SCRAPE_HEADERS = {
     "Accept": "text/html,application/xhtml+xml",
     "Accept-Language": "en-GB,en;q=0.9",
 }
+
+
+async def _fetch_url_urllib(url: str) -> Optional[str]:
+    """Fetch a URL via urllib (no JS, no cookies — simple fallback)."""
+    loop = asyncio.get_event_loop()
+
+    def _get():
+        req = urllib.request.Request(url, headers=_SCRAPE_HEADERS)
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            if resp.status in (200, 203):
+                return resp.read().decode("utf-8", errors="replace")
+        return None
+
+    try:
+        return await loop.run_in_executor(None, _get)
+    except Exception as e:
+        logger.debug("urllib fetch failed at %s: %s", url, e)
+        return None
+
+
+async def _fetch_url_with_browser(url: str) -> Optional[str]:
+    """Fetch a URL with a tiered bot-resistant approach.
+
+    Tier 1 — curl-cffi: fast HTTP with real Chrome TLS/HTTP2 fingerprints; no browser
+              process needed. Handles most newspaper search and article pages.
+    Tier 2 — crawl4ai + Patchright (UndetectedAdapter): real Chromium patched at source
+              level; used when curl-cffi gets a non-200 or JS rendering is needed.
+              Install the [stealth] extra and run: python -m patchright install chromium
+    Tier 3 — crawl4ai standard (stealth plugin): Playwright + playwright-stealth patches;
+              used when patchright is not installed.
+    Tier 4 — urllib: bare fallback when crawl4ai is absent.
+    """
+    # Tier 1: curl-cffi — TLS fingerprint spoofing, no browser overhead
+    try:
+        from curl_cffi.requests import AsyncSession  # type: ignore[import]
+
+        async with AsyncSession() as session:
+            resp = await session.get(url, impersonate="chrome131", timeout=10)
+            if resp.status_code == 200:
+                return resp.text
+            logger.debug("curl-cffi got %d at %s — escalating to browser", resp.status_code, url)
+    except ImportError:
+        pass
+    except Exception as e:
+        logger.debug("curl-cffi failed at %s: %s", url, e)
+
+    # Tier 2/3: crawl4ai real browser (with or without Patchright)
+    try:
+        from crawl4ai import AsyncWebCrawler, BrowserConfig  # type: ignore[import]
+    except ImportError:
+        logger.debug("crawl4ai not available — falling back to urllib for %s", url)
+        return await _fetch_url_urllib(url)
+
+    browser_config = BrowserConfig(
+        browser_type="chromium",
+        headless=True,
+        enable_stealth=True,
+    )
+
+    # Tier 2: Patchright strategy (if available)
+    patchright_strategy = None
+    try:
+        from crawl4ai.browser_adapter import UndetectedAdapter  # type: ignore[import]
+        from crawl4ai.async_crawler_strategy import AsyncPlaywrightCrawlerStrategy  # type: ignore[import]
+
+        patchright_strategy = AsyncPlaywrightCrawlerStrategy(
+            browser_config=browser_config,
+            browser_adapter=UndetectedAdapter(),
+        )
+    except ImportError:
+        logger.debug("Patchright not installed — using standard crawl4ai for %s", url)
+
+    if patchright_strategy is not None:
+        try:
+            async with AsyncWebCrawler(
+                config=browser_config,
+                crawler_strategy=patchright_strategy,
+            ) as crawler:
+                result = await crawler.arun(url=url)
+                if result.success and result.html:
+                    return result.html
+                logger.debug("Patchright crawl unsuccessful for %s", url)
+        except Exception as e:
+            logger.debug("Patchright crawl failed at %s: %s", url, e)
+
+    # Tier 3: Standard crawl4ai strategy
+    try:
+        async with AsyncWebCrawler(config=browser_config) as crawler:
+            result = await crawler.arun(url=url)
+            if result.success and result.html:
+                return result.html
+            logger.debug("Standard crawl4ai crawl unsuccessful for %s", url)
+    except Exception as e:
+        logger.debug("Standard crawl4ai failed at %s: %s", url, e)
+
+    # Tier 4: urllib fallback
+    return await _fetch_url_urllib(url)
+
+
+def _normalize_review_title(text: str) -> str:
+    """Normalize titles for robust equality matching."""
+    normalized = re.sub(r"[^a-z0-9]+", " ", text.lower())
+    return re.sub(r"\s+", " ", normalized).strip()
+
+
+async def _find_guardian_review_url_via_rss(title: str, year: Optional[int] = None) -> Optional[str]:
+    """Look up a Guardian film review URL from the Guardian film RSS feed.
+
+    The feed at https://www.theguardian.com/film/rss is fetched with plain urllib
+    (RSS endpoints have no bot detection). Review titles in the feed follow the
+    pattern "Film Title review – ...".
+
+    Args:
+        title: Film title to match.
+
+    Returns:
+        Canonical Guardian article URL, or None if not found in the feed.
+    """
+    rss_url = "https://www.theguardian.com/film/rss"
+    loop = asyncio.get_event_loop()
+
+    def _get_rss():
+        req = urllib.request.Request(rss_url, headers=_SCRAPE_HEADERS)
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            return resp.read().decode("utf-8", errors="replace")
+
+    try:
+        rss_content = await loop.run_in_executor(None, _get_rss)
+    except Exception as e:
+        logger.debug("Guardian RSS fetch failed: %s", e)
+        return None
+
+    try:
+        root = ET.fromstring(rss_content)
+    except ET.ParseError as e:
+        logger.debug("Guardian RSS parse error: %s", e)
+        return None
+
+    title_key = _normalize_review_title(title)
+    if not title_key:
+        return None
+
+    year_path = f"/{year}/" if year is not None else None
+    first_exact_match: Optional[str] = None
+
+    for item in root.iter("item"):
+        item_title_el = item.find("title")
+        if item_title_el is None or not item_title_el.text:
+            continue
+        item_title_text = item_title_el.text
+
+        # Guardian review titles are usually: "<film title> review – ..."
+        review_match = re.search(r"\breview\b", item_title_text, flags=re.IGNORECASE)
+        if not review_match:
+            continue
+
+        review_subject = item_title_text[:review_match.start()]
+        if _normalize_review_title(review_subject) != title_key:
+            continue
+
+        link_el = item.find("link")
+        if link_el is None or not link_el.text:
+            continue
+        url = link_el.text.strip()
+        if not url:
+            continue
+
+        if year_path and year_path in url:
+            return url
+
+        if first_exact_match is None:
+            first_exact_match = url
+
+    # If a release year is known, prefer search fallback unless RSS URL year matches.
+    return first_exact_match if year is None else None
+
+
+async def _extract_guardian_review_result(
+    article_url: str,
+) -> Optional[Dict[str, Any]]:
+    """Fetch and parse a Guardian review page into a normalized score payload."""
+    review_html = await _fetch_url_with_browser(article_url)
+    if not review_html or len(review_html) < 500:
+        return None
+
+    score = _parse_guardian_jsonld(review_html)
+    if score is None:
+        score = _parse_star_rating_from_html(review_html)
+
+    if score is None:
+        return None
+
+    headline_match = re.search(r"<title[^>]*>([^<|]+)", review_html)
+    headline = headline_match.group(1).strip() if headline_match else ""
+
+    return {
+        "score": score,
+        "url": article_url,
+        "headline": headline,
+        "source": "guardian",
+    }
 
 
 def _parse_guardian_jsonld(html: str) -> Optional[float]:
@@ -58,46 +260,38 @@ async def _fetch_guardian_review(
     year: Optional[int],
     loop,
 ) -> Optional[Dict[str, Any]]:
-    """
-    Search the Guardian website for a film review and extract the star rating.
+    """Search the Guardian for a film review and extract the star rating.
 
     Strategy:
-        1. Search https://www.theguardian.com/search?q={title}+film+review&section=film
-        2. Fall back to archive.ph if the search page is blocked.
-        3. Find the first /film/ review URL in the results.
-        4. Fetch the review page; try JSON-LD structured data first, then HTML patterns.
-        5. archive.ph fallback for the review page itself if direct access fails.
+        1. Check Guardian film RSS feed for a recent review URL (no bot detection).
+        2. If not in RSS (older film), scrape the Guardian search page via browser.
+        3. Fetch the review article; extract rating via JSON-LD or HTML patterns.
 
     Returns:
         {"score": float (0-10), "url": str, "headline": str, "source": "guardian"} or None.
     """
+    # Step 1: RSS lookup — fast, reliable, zero bot-detection risk
+    rss_article_url = await _find_guardian_review_url_via_rss(title, year)
+    if rss_article_url:
+        rss_result = await _extract_guardian_review_result(rss_article_url)
+        if rss_result:
+            return rss_result
+        logger.debug("Guardian RSS candidate failed for %r — falling back to search", title)
+
+    # Step 2: Fall back to Guardian search page (browser-based scrape)
     search_query = urllib.parse.quote_plus(f"{title} film review")
     search_url = (
         f"https://www.theguardian.com/search?q={search_query}&section=film"
     )
-
-    async def _try_url(target_url: str) -> Optional[str]:
-        def _get():
-            req = urllib.request.Request(target_url, headers=_SCRAPE_HEADERS)
-            with urllib.request.urlopen(req, timeout=8) as resp:
-                if resp.status in (200, 203):
-                    return resp.read().decode("utf-8", errors="replace")
-            return None
-        try:
-            return await loop.run_in_executor(None, _get)
-        except Exception as e:
-            logger.debug("Guardian fetch failed at %s: %s", target_url, e)
-            return None
-
-    # Step 1: Fetch Guardian search results (archive.ph fallback)
-    search_html = await _try_url(search_url)
+    search_html = await _fetch_url_with_browser(search_url)
     if not search_html or len(search_html) < 500:
-        search_html = await _try_url(f"https://archive.ph/newest/{search_url}")
-
-    if not search_html:
+        logger.debug(
+            "Guardian search blocked for %r — RT/Metacritic already aggregate this source",
+            title,
+        )
         return None
 
-    # Step 2: Extract first review URL — prefer dated /film/YYYY/… links
+    # Extract first review URL — prefer dated /film/YYYY/… links
     review_match = re.search(
         r'href="(https://www\.theguardian\.com/film/\d{4}/[^"]+)"',
         search_html,
@@ -110,33 +304,16 @@ async def _fetch_guardian_review(
     if not review_match:
         return None
 
-    review_url = review_match.group(1)
+    article_url = review_match.group(1)
+    search_result = await _extract_guardian_review_result(article_url)
+    if search_result:
+        return search_result
 
-    # Step 3: Fetch review page (archive.ph fallback)
-    review_html = await _try_url(review_url)
-    if not review_html or len(review_html) < 500:
-        review_html = await _try_url(f"https://archive.ph/newest/{review_url}")
-
-    if not review_html:
-        return None
-
-    # Step 4: Extract star rating — JSON-LD first, HTML patterns fallback
-    score = _parse_guardian_jsonld(review_html)
-    if score is None:
-        score = _parse_star_rating_from_html(review_html)
-
-    if score is None:
-        return None
-
-    headline_match = re.search(r"<title[^>]*>([^<|]+)", review_html)
-    headline = headline_match.group(1).strip() if headline_match else ""
-
-    return {
-        "score": score,
-        "url": review_url,
-        "headline": headline,
-        "source": "guardian",
-    }
+    logger.debug(
+        "Guardian review page unavailable for %r — RT/Metacritic already aggregate this source",
+        title,
+    )
+    return None
 
 
 async def _fetch_telegraph_review(
@@ -144,60 +321,37 @@ async def _fetch_telegraph_review(
     year: Optional[int],
     loop,
 ) -> Optional[Dict[str, Any]]:
-    """
-    Attempt to scrape a star rating from The Daily Telegraph's film reviews.
+    """Attempt to extract a star rating from The Daily Telegraph's film reviews.
 
-    Strategy:
-        1. Try Telegraph search page directly (may be paywalled).
-        2. On failure (paywall / 403 / timeout), fall back to archive.ph:
-           https://archive.ph/newest/https://www.telegraph.co.uk/search/?queryText=...
+    The Telegraph is heavily paywalled; even with a real browser, article content
+    is usually inaccessible. A best-effort scrape of the search page is made; if
+    the content is insufficient, None is returned cleanly.
+
+    Note: RT/Metacritic already aggregate Telegraph reviews, so this is supplementary.
 
     Returns:
         {"score": float (0-10), "url": str, "source": "telegraph"} or None.
     """
     search_query = urllib.parse.quote_plus(f"{title} review")
-    direct_url = f"https://www.telegraph.co.uk/search/?queryText={search_query}&contentType=article"
-    archive_url = f"https://archive.ph/newest/{direct_url}"
+    search_url = (
+        f"https://www.telegraph.co.uk/search/?queryText={search_query}&contentType=article"
+    )
 
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml",
-        "Accept-Language": "en-GB,en;q=0.9",
-    }
-
-    async def _try_url(target_url: str) -> Optional[str]:
-        def _get():
-            req = urllib.request.Request(target_url, headers=headers)
-            with urllib.request.urlopen(req, timeout=8) as resp:
-                if resp.status in (200, 203):
-                    return resp.read().decode("utf-8", errors="replace")
-            return None
-        try:
-            return await loop.run_in_executor(None, _get)
-        except Exception as e:
-            logger.debug("Telegraph fetch failed for %r at %s: %s", title, target_url, e)
-            return None
-
-    html = await _try_url(direct_url)
-    used_archive = False
-    if not html or len(html) < 200:  # likely a redirect to paywall
-        html = await _try_url(archive_url)
-        used_archive = True
-
-    if not html:
+    html = await _fetch_url_with_browser(search_url)
+    if not html or len(html) < 200:
+        logger.debug(
+            "Telegraph blocked or paywalled for %r — RT/Metacritic already aggregate this source",
+            title,
+        )
         return None
 
-    # Try to find a star rating in the content
     score = _parse_star_rating_from_html(html)
     if score is None:
         return None
 
     return {
         "score": score,
-        "url": archive_url if used_archive else direct_url,
+        "url": search_url,
         "source": "telegraph",
     }
 
@@ -490,8 +644,8 @@ async def discover_top_rated_content(
     Uses TMDb's trending and top-rated endpoints as the primary source.
     Optionally enriches ratings with:
         - OMDb (IMDb + Rotten Tomatoes) when OMDB_API_KEY is set
-        - The Guardian reviews when GUARDIAN_API_KEY is set
-        - The Daily Telegraph reviews (scraped; archive.ph fallback)
+        - The Guardian reviews (RSS-first, browser fallback)
+        - The Daily Telegraph reviews (best-effort browser scrape; often paywalled)
 
     Args:
         plex_client: PlexClient instance

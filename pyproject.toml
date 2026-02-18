@@ -23,8 +23,9 @@ dependencies = [
     "aiosqlite>=0.20.0",
     "watchdog>=4.0.0",
     "transmission-rpc>=7.0.0",
-    "torrent-search-mcp>=1.1.0",  # Torrent search across multiple providers
-    "crawl4ai>=0.8.0",            # Required by torrent-search-mcp (>=0.8.0 for CVE fix)
+    "torrent-search-mcp>=1.1.0", # Torrent search across multiple providers
+    "crawl4ai>=0.8.0", # Required by torrent-search-mcp (>=0.8.0 for CVE fix)
+    "curl-cffi>=0.7.0", # TLS/HTTP2 fingerprint spoofing — fast first-pass scraper
 ]
 
 [project.optional-dependencies]
@@ -33,6 +34,11 @@ dev = [
     "pytest-asyncio>=0.23",
     "pytest-mock>=3.12",
     "aioresponses>=0.7",
+]
+stealth = [
+    # Deep anti-detection via Patchright (Chromium patched at source level).
+    # After installing: python -m patchright install --with-deps chromium
+    "patchright>=1.50.0",
 ]
 
 [project.scripts]
